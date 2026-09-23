@@ -23,22 +23,33 @@ una tarea que solo existe en una conversación se pierde en cuanto se cierra.
   Nextflow 26 y la de las series 24/25, porque el manifiesto admite >=24.04.0.
   Sólo se ha podido ejercitar contra la 26, que es la instalada aquí.
 
-- **La CI nunca se ha ejecutado** (2026-09-22). El repositorio no se ha
-  publicado, así que GitHub Actions no ha tenido ocasión de correr y el badge
-  no está verde. Se cierra con el primer `push`. Sustituto local: se copiaron
-  los ficheros versionables a un directorio vacío y se siguió el README desde
-  cero — 55 pruebas y el pipeline completo, 3 min 54 s, en verde.
-- **`containers/Dockerfile` nunca se ha construido** (2026-09-22). No hay Docker
-  en la máquina donde se escribió. El trabajo `imagen` de la CI lo construye y
-  comprueba que las versiones de dentro son las fijadas. Hasta ese primer
-  `push`, sigue siendo la pieza sin probar.
-- **El perfil `docker` no se ha ejercitado** (2026-09-22). Lo verificado en
-  local es `-profile test` con las herramientas en el PATH. Al preparar la CI
-  se encontró y corrigió un fallo que lo habría roto en su primer uso
-  (`debian:12.11-slim` no trae `curl`), pero eso es razonamiento, no ejecución:
-  lo verifica el trabajo `pipeline-completo`.
+- **El perfil `docker` corre a medias** (2026-09-23). El primer `push` lo
+  ejecutó por primera vez y murió en `FETCH_KRAKEN_DB`. Corregido; queda
+  pendiente verlo llegar al final.
+
+## Herramientas que mienten
+
+- **`gh run watch --exit-status` salió con código 0 con dos trabajos en rojo**
+  (2026-09-23). Si se hubiera creído ese código, se habría dado la CI por
+  verde. **El estado de la CI se lee de la API, por trabajo (`conclusion`), y
+  nunca del código de salida de `gh run watch`:**
+
+      gh api repos/<owner>/<repo>/actions/runs/<id>/jobs --jq '.jobs[].conclusion'
+
+  Si algún día se automatiza la comprobación del estado de la CI, que sea por
+  ahí.
 
 ## Encontrado corriendo, no leyendo
+
+- **Dos imágenes elegidas leyendo, dos corridas rojas** (2026-09-23).
+  `debian:12.11-slim` no trae `curl`; `buildpack-deps:bookworm-curl` no trae
+  `ps`, que Nextflow exige dentro del contenedor, y la tarea murió sin
+  imprimir nada. Lo que un Dockerfile enumera no es lo que la imagen tiene. De
+  ahí la regla: lo que la imagen provee se comprueba **construyéndola y
+  ejecutándola**, y hay guarda con ataque (`tests/test_imagen.py`).
+- **Una comprobación de conformidad que ocultaba el motivo** (2026-09-23).
+  `bash -lc '… 2>&1 | grep -q …'`: el shell de login reescribía `PATH` y el
+  `grep -q` se tragaba el `command not found`. Falló con cero líneas de salida.
 
 - **`--retry` de curl no reintentaba el error 56** (2026-09-22). Tres reintentos
   configurados que nunca se usaban; una conexión cortada a mitad de descarga

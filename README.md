@@ -10,24 +10,25 @@ Descarga los FASTQ y verifica su integridad, los pasa por control de calidad y
 una puerta de lecturas mínimas, y perfila la composición taxonómica.
 Cada salida lleva anotado qué versión de qué herramienta la produjo.
 
-> **El badge de arriba no está verde todavía: la CI no se ha ejecutado nunca.**
-> Este repositorio aún no se ha publicado, así que GitHub Actions no ha tenido
-> ocasión de correr. Lo que sí se ha hecho es lo más parecido que se puede hacer
-> en local: copiar exactamente los ficheros que se versionarían a un directorio
-> vacío, seguir las instrucciones de este README desde cero y correrlo todo
-> allí — 55 pruebas y el pipeline completo bajando lecturas y base de
-> referencia, en 3 min 54 s. Eso destapó un defecto real, que está abajo. Lo
-> que sigue sin ejercitarse es el perfil de contenedores; lo dice
-> [docs/PENDIENTES.md](docs/PENDIENTES.md) y lo cierra el primer `push`.
+> **Estado: la CI ya ha corrido, y su primera corrida salió roja.** Encontró
+> dos cosas que ninguna revisión de código había visto, las dos por haber
+> elegido una imagen leyendo su Dockerfile en vez de ejecutándola: la imagen de
+> descarga no traía `ps`, que Nextflow necesita dentro del contenedor, y la
+> comprobación de conformidad de la propia imagen se tragaba su diagnóstico y
+> fallaba sin imprimir nada. Ambas corregidas, y convertidas en guarda con su
+> ataque. Lo que quede abierto vive en
+> [docs/PENDIENTES.md](docs/PENDIENTES.md), con fecha.
 
 ## Correrlo
 
 ```bash
+make image                                   # una vez: construye la imagen
 nextflow run main.nf -profile test,docker
 ```
 
-Sin Docker, con conda: `-profile test,conda`. El perfil `test` trae el
-samplesheet de ejemplo. La primera corrida descarga 34 MB de lecturas desde ENA
+Sin construir nada: `-profile test,conda`.
+
+El perfil `test` trae el samplesheet de ejemplo. La primera corrida descarga 34 MB de lecturas desde ENA
 y 112 MB de base de referencia; la base queda cacheada fuera de `work/` y no se
 vuelve a bajar. En una máquina limpia, de cero a resultados: **unos 4 minutos**.
 
@@ -90,6 +91,7 @@ ha fallado no protege nada.
 | Procedencia que se contradice | md5 declarado ≠ md5 verificado | `ERROR la procedencia se contradice: el md5 declarado para la base (…) no coincide con el verificado (…)`, y **no se escribe el documento** |
 | Veredictos repetidos o de más | Dos veredictos para la misma muestra | columna `inconsistencias` > 0 en el resumen, y `LA CORRIDA NO SE DA POR BUENA: N inconsistencia(s)` |
 | Resumen con cuentas que no cuadran | `no_pasan=1` con detalle sin caídas | `ERROR el resumen se contradice: dice no_pasan=1 pero el detalle trae 0 fila(s) caída(s)` |
+| La imagen no provee lo que el pipeline usa | Construir una imagen derivada **sin `ps`** y pasarle la guarda | `la imagen nf-16s-guarded:0.1.0 no provee: ps`, con la salida real de la imagen. La guarda ejecuta la imagen: `docker run --rm <imagen> sh -c 'command -v curl tar ps'` |
 | md5 de la base de referencia | Declarar un md5 de efes | `ERROR el md5 de la base 16S NO coincide` + declarado, calculado, bytes y origen |
 | Base descomprimida incompleta | Tarball sin `hash.k2d` | `ERROR la base descomprimida no trae 16S_SILVA138_k2db/hash.k2d` |
 | Puerta de lecturas mínimas | Muestra de 50 pares con `--min_reads 1000` | `muestra POCAS apartada por la puerta de calidad (NO_PASA): no se perfila`, y después `LA CORRIDA NO SE DA POR BUENA: POCAS: solo 50 pares tras el filtrado, por debajo del umbral 1000: faltan 950`. **No existe `results/kraken2/`**, y el resumen sí se publica |
@@ -167,6 +169,48 @@ que se puede fallar.
 Validar dentro de un proceso significa que la columna que falta se descubre
 cuando ya hay tareas lanzadas y salidas a medio escribir. Aquí el fichero se
 lee y se comprueba entero antes de lanzar la primera tarea.
+
+**La imagen del pipeline es la del repositorio, no la de un tercero.** Los
+pasos de descarga corrían en imágenes públicas elegidas **leyendo** lo que
+decían traer. Dos corridas rojas seguidas: `debian:12.11-slim` no trae `curl`,
+y `buildpack-deps:bookworm-curl` —cuyo Dockerfile oficial lista
+`ca-certificates curl gnupg netbase sq wget`, todo cierto— no trae `ps`, que
+Nextflow exige dentro del contenedor para recoger métricas. La tarea murió sin
+imprimir una sola línea. Lo que un Dockerfile enumera no es lo que la imagen
+tiene. Ahora esos pasos usan la imagen de `containers/`, que además deja de ser
+una pieza que sólo se construye, y `containers/env.yml` es la única fuente de
+versiones del repositorio.
+
+De ahí sale una regla, y es una guarda: **lo que la imagen provee se comprueba
+construyéndola y ejecutándola**, nunca leyendo un Dockerfile.
+[`tests/test_imagen.py`](tests/test_imagen.py) ejecuta la imagen y pregunta por
+cada herramienta **una por una**, exige también el paquete de certificados,
+comprueba que **todas** las imágenes declaradas traen `ps` —la generalización
+del fallo real— y se ataca a sí misma construyendo una imagen derivada sin `ps`
+para verse en rojo.
+
+Un aviso que salió al escribirla, y que es la misma lección otra vez: la forma
+corta de esa comprobación **no sirve**.
+
+```
+$ docker run --rm <imagen> sh -c 'command -v curl tar esto_no_existe'
+/opt/conda/bin/curl
+$ echo $?
+0
+```
+
+`/bin/sh` es dash, y su `command -v` sólo mira el primer argumento: aprueba una
+imagen a la que le falten las demás, y sólo falla si la ausente va primera. Hay
+que preguntar de una en una, que es lo que hace la prueba.
+
+**Una comprobación de conformidad no puede ocultar el motivo del
+incumplimiento.** La del trabajo `imagen` era
+`bash -lc '… 2>&1 | grep -q …'` y falló con **cero líneas de salida**. Dos
+errores en una línea: `bash -l` relee `/etc/profile` y reescribe `PATH`,
+llevándose por delante el `/opt/conda` que fija el Dockerfile; y el
+`2>&1 | grep -q` mandaba el `command not found` a `grep`, que lo silenciaba.
+Es exactamente el patrón contra el que existe este repositorio, y me lo hice a
+mí mismo. Sin `-l`, y stderr se imprime.
 
 **Los reintentos de red hay que pedirlos bien.** `--retry` de curl sólo
 reintenta lo que curl considera transitorio —timeouts y 5xx— y **no** reintenta
