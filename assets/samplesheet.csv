@@ -1,0 +1,3 @@
+sample,fastq_1,fastq_2,md5_1,md5_2
+ERR674093,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR674/ERR674093/ERR674093_1.fastq.gz,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR674/ERR674093/ERR674093_2.fastq.gz,92adf54a71f6abe8d9eaa61ac9b03570,516e7462085d16e2886c095f275b238d
+ERR674112,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR674/ERR674112/ERR674112_1.fastq.gz,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR674/ERR674112/ERR674112_2.fastq.gz,d92a234ffdda5c6e415a891171d92fef,b93b25358328e4cc5811370f5f9ddb99
