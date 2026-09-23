@@ -55,18 +55,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: docker build
-        run: docker build -f containers/Dockerfile -t nf-16s-guarded:ci .
+        run: docker build -f containers/Dockerfile -t nf-16s-guarded:0.1.0 .
 
+      # SIN `bash -l` y SIN tragarse stderr. La version anterior era
+      # `bash -lc '... 2>&1 | grep -q ...'` y fallaba en silencio absoluto: el
+      # shell de login relee /etc/profile y reescribe PATH, perdiendo el
+      # /opt/conda que fija el Dockerfile, y el `2>&1 | grep -q` mandaba el
+      # "command not found" a grep, que lo silenciaba. Exit 1, cero lineas.
       - name: las versiones dentro de la imagen son las fijadas
         run: |
-          docker run --rm nf-16s-guarded:ci bash -lc '
-            set -euo pipefail
-            fastp --version 2>&1 | grep -q "0\.24\.0"
-            kraken2 --version  | grep -q "2\.1\.3"
-            multiqc --version  | grep -q "1\.25\.1"
-            curl --version     | head -1
-            echo "imagen conforme"
-          '
+          set -o pipefail
+          docker run --rm --entrypoint "" nf-16s-guarded:0.1.0 sh -c '
+            fastp --version
+            kraken2 --version
+            multiqc --version
+            curl --version | head -1
+            ps --version
+          ' 2>&1 | tee /tmp/versiones.txt
+          for esperada in "0\.24\.0" "2\.1\.3" "1\.25\.1" ; do
+            grep -qE "$esperada" /tmp/versiones.txt \
+              || { echo "::error::la imagen no responde con la version fijada $esperada"; exit 1; }
+          done
+          echo "imagen conforme"
+
+      # La guarda de verdad: ejecuta la imagen y exige curl, tar, ps y
+      # certificados; ataca quitando `ps` y comprueba que se pone roja.
+      - name: la imagen provee lo que el pipeline necesita
+        run: make test-imagen
 
   # -------------------------------------------------------------------------
   # 3. Las guardas, atacadas. Sin red: sirven sus propios FASTQ desde
@@ -131,6 +146,12 @@ jobs:
         with:
           path: references
           key: base16s-94ecb2c851f3e4f02335559d42013f0f
+
+      # Los pasos de fontaneria corren en la imagen del repositorio, asi que
+      # hay que construirla antes. Cada trabajo tiene su propio demonio, de
+      # modo que no vale la que construyo el trabajo `imagen`.
+      - name: construir la imagen del pipeline
+        run: docker build -f containers/Dockerfile -t nf-16s-guarded:0.1.0 .
 
       - name: correr el pipeline
         run: nextflow run main.nf -profile test,docker
