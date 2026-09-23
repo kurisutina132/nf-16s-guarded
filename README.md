@@ -10,13 +10,17 @@ Descarga los FASTQ y verifica su integridad, los pasa por control de calidad y
 una puerta de lecturas mínimas, y perfila la composición taxonómica.
 Cada salida lleva anotado qué versión de qué herramienta la produjo.
 
-> **Estado: la CI ya ha corrido, y su primera corrida salió roja.** Encontró
-> dos cosas que ninguna revisión de código había visto, las dos por haber
-> elegido una imagen leyendo su Dockerfile en vez de ejecutándola: la imagen de
-> descarga no traía `ps`, que Nextflow necesita dentro del contenedor, y la
-> comprobación de conformidad de la propia imagen se tragaba su diagnóstico y
-> fallaba sin imprimir nada. Ambas corregidas, y convertidas en guarda con su
-> ataque. Lo que quede abierto vive en
+> **Estado: la CI pasa.** Los cuatro trabajos en verde en un clon limpio de
+> GitHub Actions, incluido el pipeline completo con contenedores sobre las dos
+> muestras reales de ENA ([corrida](https://github.com/kurisutina132/nf-16s-guarded/actions/runs/35887090008), 2026-09-23).
+>
+> Se deja escrito que **la primera corrida salió roja**, porque es la parte
+> útil: encontró dos cosas que ninguna revisión de código había visto, las dos
+> por haber elegido una imagen leyendo su Dockerfile en vez de ejecutándola —
+> la imagen de descarga no traía `ps`, que Nextflow necesita dentro del
+> contenedor, y la comprobación de conformidad de la propia imagen se tragaba
+> su diagnóstico y fallaba sin imprimir nada. Ambas corregidas y convertidas en
+> guarda con su ataque. Lo que quede abierto vive en
 > [docs/PENDIENTES.md](docs/PENDIENTES.md), con fecha.
 
 ## Correrlo

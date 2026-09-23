@@ -3,6 +3,18 @@
 Lo que falta o está a medias, con fecha. Vive aquí y no en la cabeza de nadie:
 una tarea que solo existe en una conversación se pierde en cuanto se cierra.
 
+## Cerrado
+
+- **La CI pasa entera** (2026-09-23). Los cuatro trabajos en verde:
+  `pruebas-rapidas` 7 s, `imagen` 93 s, `ataques` 175 s, `pipeline-completo`
+  208 s. Corrida: https://github.com/kurisutina132/nf-16s-guarded/actions/runs/35887090008
+
+  Cierra de golpe todo lo que estaba abierto desde el 2026-09-22 sobre
+  contenedores: la CI no se había ejecutado nunca, `containers/Dockerfile` no
+  se había construido nunca, y el perfil `docker` no se había ejercitado nunca.
+  Las tres se cerraron con la EJECUCIÓN, no con el verde: la primera corrida
+  salió roja y ya las había cerrado.
+
 ## Revisado
 
 - **Etapas [B] y [C] revisadas el 2026-09-22.** Salieron nueve defectos reales,
@@ -22,10 +34,6 @@ una tarea que solo existe en una conversación se pierde en cuanto se cierra.
 - **`_sin_procesos_lanzados` mira dos marcas de motor** (2026-09-22): la de
   Nextflow 26 y la de las series 24/25, porque el manifiesto admite >=24.04.0.
   Sólo se ha podido ejercitar contra la 26, que es la instalada aquí.
-
-- **El perfil `docker` corre a medias** (2026-09-23). El primer `push` lo
-  ejecutó por primera vez y murió en `FETCH_KRAKEN_DB`. Corregido; queda
-  pendiente verlo llegar al final.
 
 ## Herramientas que mienten
 
