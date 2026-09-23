@@ -1,0 +1,14 @@
+#!/bin/sh
+# Elimina atribucion de herramientas del mensaje de commit.
+# Quirurgico a proposito: borra SOLO patrones de atribucion conocidos.
+set -e
+msg="$1"
+sed -i -E \
+  -e '/^[[:space:]]*Co-authored-by:.*(claude|anthropic|copilot|gpt)/Id' \
+  -e '/noreply@anthropic\.com/Id' \
+  -e '/Generated with .*(Claude|Copilot|ChatGPT)/Id' \
+  -e '/^[[:space:]]*🤖/d' \
+  "$msg"
+tmp="$(mktemp)"
+awk 'NF{p=NR} {a[NR]=$0} END{for(i=1;i<=p;i++) print a[i]}' "$msg" > "$tmp"
+mv "$tmp" "$msg"
