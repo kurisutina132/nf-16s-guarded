@@ -1,0 +1,17 @@
+# Lo que produce una corrida, nunca al repositorio.
+work/
+results/
+references/
+.nextflow/
+.nextflow.log*
+.nextflow.history
+
+# Los datos se descargan, no se versionan. El repositorio pesa unos pocos MB.
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+
+__pycache__/
+*.pyc
+.pytest_cache/
